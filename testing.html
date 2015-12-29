@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
 	<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
 	<script>
@@ -9,11 +10,7 @@
 	<link href="styles.css" rel="stylesheet" type="text/css">
 </head>
 <body>
-    <script async defer
-      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCj73tIFXQfTsVWD83JQnMUho1PZa_YOLA&callback=mapsReady">
-    </script>
 	<script>
-	var mapsAreLoaded = false;
 	var vehicles;
 
 	// Load the bus list from the web server
@@ -37,17 +34,16 @@
 		}
 	});
 
-	// Callback function for async map loading code
-	function mapsReady() {
-		mapsAreLoaded = true;
-	}
-
 	// Consumes the list of vehicles and fills the route picker
 	function finishLoad() {
 		// Find all the unique routes
 		var routes = underscore.uniq( vehicles, false, function( item ) { return item.Route } );
-		$.each( routes, function( i, r ) {
-			$("<option/>").text( r.Route ).attr( "value", r.Route ).appendTo( "#routesList" );
+		routes = underscore.sortBy( routes, function( v ) { return parseInt( v.Route ); } );
+		$.each( routes, function( i, v ) {
+			if( v.Route === "" ) {
+				return;
+			}
+			$("<option/>").text( v.Route ).attr( "value", v.Route ).appendTo( "#routesList" );
 		} );
 
 		$("#loading").css("display", "none")
@@ -70,31 +66,30 @@
 				return;
 			}
 
-			var id = "map" + i
 			var header = v.Signage;
 			var status = v.Speed + " MPH, Heading " + v.Heading + "0";
 			var footer = "Updated: " + v.Updatetime
 			var pos = parseLocation( v.Position );
+			
+			var mapUrl = "https://maps.googleapis.com/maps/api/staticmap?";
+			mapUrl += "key=AIzaSyCj73tIFXQfTsVWD83JQnMUho1PZa_YOLA";
+			mapUrl += "&center=" + pos.lat + "," + pos.lng;
+			mapUrl += "&zoom=15";
+			mapUrl += "&size=350x262";
+			mapUrl += "&scale=2";
+			mapUrl += "&markers=color:red%7C" + pos.lat + "," + pos.lng;
 
 			var elem = $("<div/>").addClass( "vehicleInfo" );
 			$("<p/>").addClass( "busHeader" ).text( header ).appendTo( elem );
 			$("<p/>").addClass( "busStatus" ).text( status ).appendTo( elem );
 			$("<p/>").addClass( "busFooter" ).text( footer ).appendTo( elem );
-			var wrapper = $("<div/>").addClass( "busMap" ).appendTo( elem );
-			$("<div/>").attr( "id", id ).appendTo( wrapper );
+			$("<img/>")
+				.addClass( "busMap" )
+				.attr( "src", mapUrl )
+				.attr( "width", "350" )
+				.attr( "height", "262" )
+				.appendTo( elem );
 			elem.appendTo( "#buses" );
-
-			var map = new google.maps.Map( document.getElementById( id ), {
-				center: pos,
-				zoom: 15,
-				disableDefaultUI: true
-			});
-
-			new google.maps.Marker({
-				position: pos,
-				map: map,
-				title: "X"
-			})
 		} );
 	}
 	</script>
