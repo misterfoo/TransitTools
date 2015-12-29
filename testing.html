@@ -1,32 +1,120 @@
+<!DOCTYPE html>
 <html>
 <head>
-	<script src="https://code.jquery.com/jquery-1.10.2.js"></script>	
+	<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+	<script>
+		var underscore = _.noConflict();
+	</script>
+	<link href="styles.css" rel="stylesheet" type="text/css">
 </head>
 <body>
+    <script async defer
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCj73tIFXQfTsVWD83JQnMUho1PZa_YOLA&callback=mapsReady">
+    </script>
 	<script>
-	var busStatusUrl = "https://data.texas.gov/api/file_data/72fa25ef-d5a9-4fe8-8ef8-32e48f50e850";
-	var info;
+	var mapsAreLoaded = false;
+	var vehicles;
+
+	// Load the bus list from the web server
+	var busStatusUrl = "http://localhost:8080/VehicleLocations";
 	$.ajax({
 		url: busStatusUrl,
 		
-		jsonp: "somefunc",
-	
 		// Tell jQuery we're expecting JSONP
 		dataType: "jsonp",
 
-		data: { zed: "abc" },
-	
 		// Work with the response
 		success: function( response ) {
-			console.log( response ); // server response
+			var package = response["soap:Envelope"]["soap:Body"].FleetlocationResponse;
+			console.log( package ); // server response
+			vehicles = package.Vehicles.Vehicle;
+			finishLoad();
 		},
 		
 		error: function( jqXHR, statusText, error ) {
 			console.log( statusText );
 		}
 	});
+
+	// Callback function for async map loading code
+	function mapsReady() {
+		mapsAreLoaded = true;
+	}
+
+	// Consumes the list of vehicles and fills the route picker
+	function finishLoad() {
+		// Find all the unique routes
+		var routes = underscore.uniq( vehicles, false, function( item ) { return item.Route } );
+		$.each( routes, function( i, r ) {
+			$("<option/>").text( r.Route ).attr( "value", r.Route ).appendTo( "#routesList" );
+		} );
+
+		$("#loading").css("display", "none")
+		$("#content").css("display", "block")
+	}
+
+	// Converts a location string (e.g. "1.234,-5.678") to a Google Maps location object 
+	function parseLocation( locationStr ) {
+		var parts = locationStr.split( "," );
+		var lat = parseFloat( parts[0] );
+		var lon = parseFloat( parts[1] );
+		return { lat: lat, lng: lon };
+	}
+
+	// Switches the display to show a particular route	
+	function showRoute( route ) {
+		$("#buses").empty()
+		$.each( vehicles, function( i, v ) {
+			if( v.Route !== route ) {
+				return;
+			}
+
+			var id = "map" + i
+			var header = v.Signage;
+			var status = v.Speed + " MPH, Heading " + v.Heading + "0";
+			var footer = "Updated: " + v.Updatetime
+			var pos = parseLocation( v.Position );
+
+			var elem = $("<div/>").addClass( "vehicleInfo" );
+			$("<p/>").addClass( "busHeader" ).text( header ).appendTo( elem );
+			$("<p/>").addClass( "busStatus" ).text( status ).appendTo( elem );
+			$("<p/>").addClass( "busFooter" ).text( footer ).appendTo( elem );
+			var wrapper = $("<div/>").addClass( "busMap" ).appendTo( elem );
+			$("<div/>").attr( "id", id ).appendTo( wrapper );
+			elem.appendTo( "#buses" );
+
+			var map = new google.maps.Map( document.getElementById( id ), {
+				center: pos,
+				zoom: 15,
+				disableDefaultUI: true
+			});
+
+			new google.maps.Marker({
+				position: pos,
+				map: map,
+				title: "X"
+			})
+		} );
+	}
 	</script>
-	
+
+	<div id="main">
+		<div id="test"></div>
+		
+		<div id="loading">Loading...</div>
+
+		<div id="content">
+			<div id="routes">
+				<p id="routesListLabel">Route:</p>
+				<select name="Route" id="routesList" onchange="javascript:showRoute(this.value)">
+					<!-- Filled dynamically -->
+				</select>
+			</div>
+			<div id="buses">
+				<!-- Filled dynamically -->
+			</div>
+		</div>
+	</div>
 </body>
 </html>
-    

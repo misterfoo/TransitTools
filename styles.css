@@ -1,0 +1,71 @@
+
+body {
+	font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+@media only screen and (min-width: 1000px) {
+	#main {
+		width: 600px;
+		margin: auto;
+	}	
+}
+	
+#loading {
+	text-align: center;
+}
+
+#content {
+	display: none;
+	margin: auto;
+}
+
+#routes {
+	width: 50%;
+	margin-left: auto;
+	margin-right: auto;
+	margin-bottom: 10px;
+}
+
+#routesListLabel {
+	display: inline;
+}
+
+#routesList {
+	width: 70%;
+}
+
+div.vehicleInfo {
+	width: 95%;
+	margin: auto;
+}
+
+p.busHeader {
+	position: relative;
+	text-align: center;
+	font-weight: bold;
+}
+
+p.busStatus {
+	text-align: center;
+}
+
+p.busFooter {
+	text-align: center;
+	font-size: smaller;
+	padding: 0pt;
+}
+
+div.busMap {
+	position: relative;
+	padding-bottom: 75%;
+}
+
+/* http://stackoverflow.com/questions/1495407/maintain-the-aspect-ratio-of-a-div-with-css/10441480#10441480 */
+div.busMap > div {
+	position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+

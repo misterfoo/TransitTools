@@ -27,7 +27,7 @@ func getLocations(w http.ResponseWriter, r *http.Request) {
 	client := urlfetch.Client(ctx)
 
 	// Get the latest bus locations
-	resp, err := client.Get("https://data.texas.gov/api/file_data/72fa25ef-d5a9-4fe8-8ef8-32e48f50e850")
+	resp, err := client.Get("https://data.texas.gov/download/gyui-3zdd/text/plain")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
