@@ -1,0 +1,32 @@
+<html>
+<head>
+	<script src="https://code.jquery.com/jquery-1.10.2.js"></script>	
+</head>
+<body>
+	<script>
+	var busStatusUrl = "https://data.texas.gov/api/file_data/72fa25ef-d5a9-4fe8-8ef8-32e48f50e850";
+	var info;
+	$.ajax({
+		url: busStatusUrl,
+		
+		jsonp: "somefunc",
+	
+		// Tell jQuery we're expecting JSONP
+		dataType: "jsonp",
+
+		data: { zed: "abc" },
+	
+		// Work with the response
+		success: function( response ) {
+			console.log( response ); // server response
+		},
+		
+		error: function( jqXHR, statusText, error ) {
+			console.log( statusText );
+		}
+	});
+	</script>
+	
+</body>
+</html>
+    
