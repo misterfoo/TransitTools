@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
-<head>
+<head profile="http://www.w3.org/2005/10/profile">
+	<title>CapMetro Bus Status</title>
+	<link rel="icon" type="image/png" href="/favicon.png">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
 	<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
@@ -14,7 +16,7 @@
 	var vehicles;
 
 	// Load the bus list from the web server
-	var busStatusUrl = "http://localhost:8080/VehicleLocations";
+	var busStatusUrl = location.origin + "/VehicleLocations";
 	$.ajax({
 		url: busStatusUrl,
 		
@@ -46,6 +48,10 @@
 			$("<option/>").text( v.Route ).attr( "value", v.Route ).appendTo( "#routesList" );
 		} );
 
+		// Pre-select the 19 route
+		$("#routesList").val( "19" );
+		showRoute( "19" );
+
 		$("#loading").css("display", "none")
 		$("#content").css("display", "block")
 	}
@@ -57,6 +63,35 @@
 		var lon = parseFloat( parts[1] );
 		return { lat: lat, lng: lon };
 	}
+	
+	// Converts a value between 0 and 360 to textual form, e.g. "NW"
+	function directionToText( hdg ) {
+		var half = 45 / 2;
+		if( hdg > (360 - half) || hdg <= (0 + half) ) {
+			return "North";
+		}
+		else if( hdg > (0 + half) && hdg <= (90 - half) ) {
+			return "Northeast";
+		}
+		else if( hdg > (90 - half) && hdg <= (90 + half) ) {
+			return "East";
+		}
+		else if( hdg > (90 + half) && hdg <= (180 - half) ) {
+			return "Southeast";
+		}
+		else if( hdg > (180 - half) && hdg <= (180 + half) ) {
+			return "South";
+		}
+		else if( hdg > (180 + half) && hdg <= (270 - half) ) {
+			return "Southwest";
+		}
+		else if( hdg > (270 - half) && hdg <= (270 + half) ) {
+			return "West";
+		}
+		else {
+			return "Northwest";
+		}
+	}
 
 	// Switches the display to show a particular route	
 	function showRoute( route ) {
@@ -65,9 +100,11 @@
 			if( v.Route !== route ) {
 				return;
 			}
+			
+			var bearing = directionToText( parseInt( v.Heading ) * 10 );
 
 			var header = v.Signage;
-			var status = v.Speed + " MPH, Heading " + v.Heading + "0";
+			var status = v.Speed + " MPH, Heading " + bearing + " (" + v.Heading.trim() + "0\u00B0)";
 			var footer = "Updated: " + v.Updatetime
 			var pos = parseLocation( v.Position );
 			
@@ -101,7 +138,7 @@
 
 		<div id="content">
 			<div id="routes">
-				<p id="routesListLabel">Route:</p>
+				<p id="routesListLabel">Select Route</p>
 				<select name="Route" id="routesList" onchange="javascript:showRoute(this.value)">
 					<!-- Filled dynamically -->
 				</select>

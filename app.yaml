@@ -1,0 +1,11 @@
+application: transittools-1173
+version: 1
+runtime: go
+api_version: go1
+
+handlers:
+- url: /(.*\.(html|css|ico|png))$
+  static_files: static/\1
+  upload: static/.*\.(html|css|ico|png)$
+- url: /.*
+  script: _go_app
