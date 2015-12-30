@@ -8,19 +8,19 @@ import (
 	"google.golang.org/appengine/urlfetch"
 )
 
+// Initializes the server and sets up the handler functions.
 func init() {
-    http.HandleFunc("/VehicleLocations", getLocations)
-    http.HandleFunc("/Test", test)
+	http.HandleFunc("/", redirectIndex)
+	http.HandleFunc("/VehicleLocations", getLocations)
 }
 
-func test(w http.ResponseWriter, r *http.Request) {
-	callback, _ := r.URL.Query()["callback"]
-
-	fmt.Fprintf(w, "%v", len(callback))
-	fmt.Fprint(w, "(")
-	fmt.Fprint(w, ")")
+// Redirects requests for the website root (http://wherever/) to our index page.
+func redirectIndex(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)	
 }
 
+// Wraps a request for the CapMetro VehLoc.json file so that it can be used with JSONP.
+// Might not need this: https://github.com/luqmaan/Instabus/blob/master/src/js/requests.js
 func getLocations(w http.ResponseWriter, r *http.Request) {
 	// Setup the app engine context and URL fetch object
 	ctx := appengine.NewContext(r)
@@ -42,6 +42,7 @@ func getLocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Write the data back to the client, wrapped by a function call to the specified callback.
 	fmt.Fprintf(w, callback)
 	fmt.Fprint(w, "(")
 	io.Copy(w, resp.Body)
