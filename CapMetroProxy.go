@@ -14,9 +14,9 @@ func init() {
 	http.HandleFunc("/VehicleLocations", getLocations)
 }
 
-// Redirects requests for the website root (http://wherever/) to our index page.
+// Redirects requests for the website root (http://wherever/) to the default landing page.
 func redirectIndex(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)	
+	http.Redirect(w, r, "/buses.html", http.StatusMovedPermanently)	
 }
 
 // Wraps a request for the CapMetro VehLoc.json file so that it can be used with JSONP.
