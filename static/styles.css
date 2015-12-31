@@ -1,16 +1,18 @@
+/* for general sanity */
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
 
 body {
 	font-family: Verdana, Geneva, Tahoma, sans-serif;
+	margin: 0;
+	padding: 0;
 }
 
-@media only screen and (min-width: 1000px) {
-	#main {
-		width: 600px;
-		margin: auto;
-	}	
-}
-	
 #loading {
+	margin: 10px;
 	text-align: center;
 }
 
@@ -20,33 +22,54 @@ body {
 }
 
 #routes {
+	margin-bottom: 10px;
+	padding: 10px;
 	text-align: center;
-	margin-left: auto;
-	margin-right: auto;
-	margin-bottom: 1em;
+	background-color: lightslategray;
+	color: white;
 }
 
 div.vehicleInfo {
-	width: 100%;
 	margin: auto;
+	margin-bottom: 10px;
+	padding: 5px;
+	background-color: lightgray;
 	text-align: center;
-	margin-bottom: 2em;
+}
+
+@media only screen and (min-width: 800px) {
+	#buses {
+		text-align: center;
+	}
+
+	/* Show each bus as a box, flowed to fit the page */
+	div.vehicleInfo {
+		display: inline-block;
+		width: 360px;
+		margin: 10px;
+	}
 }
 
 p.busHeader {
-	position: relative;
+	margin: 0px;
 	text-align: center;
 	font-weight: bold;
-	margin: 0em;
 }
 
 p.busStatus {
+	margin: 0px;
 	text-align: center;
-	margin: 0em;
 }
 
 p.busFooter {
+	margin: 0px;
 	text-align: center;
 	font-size: smaller;
-	margin: 0em;
+}
+
+img.busMap {
+	margin-top: 5px;
+	border-style: solid;
+	border-width: 2px;
+	border-color: lightslategray;
 }
