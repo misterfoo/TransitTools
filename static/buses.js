@@ -8,13 +8,20 @@ var userLocation = null;
 
 // Load the bus list from the web server
 var busStatusUrl = location.origin + "/VehicleLocations";
+var ajaxData = {};
+if( document.location.hash === "#testing" ) {
+	ajaxData.cachedTestData = 1;
+}
 $.ajax({
 	url: busStatusUrl,
+
+	// Additional data for the query.	
+	data: ajaxData,
 	
-	// Tell jQuery we're expecting JSONP
+	// Tell jQuery we're expecting JSONP.
 	dataType: "jsonp",
 
-	// Work with the response
+	// Process the response.
 	success: function( response ) {
 		var package = response["soap:Envelope"]["soap:Body"].FleetlocationResponse;
 		console.log( package ); // server response
@@ -22,6 +29,7 @@ $.ajax({
 		finishLoad();
 	},
 	
+	// Handle errors.
 	error: function( jqXHR, statusText, error ) {
 		console.log( statusText );
 	}
