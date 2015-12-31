@@ -1,10 +1,12 @@
 package CapMetroProxy
 
 import (
-	"io"
+	"bytes"
     "fmt"
     "net/http"
 	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
 	"google.golang.org/appengine/urlfetch"
 )
 
@@ -19,19 +21,17 @@ func redirectIndex(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/buses.html", http.StatusMovedPermanently)	
 }
 
+// Caching data structure used by getLocations
+type VehicleLocations struct {
+	JsonData []byte
+}
+
 // Wraps a request for the CapMetro VehLoc.json file so that it can be used with JSONP.
 // Might not need this: https://github.com/luqmaan/Instabus/blob/master/src/js/requests.js
 func getLocations(w http.ResponseWriter, r *http.Request) {
-	// Setup the app engine context and URL fetch object
-	ctx := appengine.NewContext(r)
-	client := urlfetch.Client(ctx)
 
-	// Get the latest bus locations
-	resp, err := client.Get("https://data.texas.gov/download/gyui-3zdd/text/plain")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	ctx := appengine.NewContext(r)
+	log.Infof(ctx, "Requested URL: %v", r.URL)
 
 	// What callback function should we use?
 	callback := ""
@@ -42,9 +42,58 @@ func getLocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Should we return cached test data?
+	var wantCached bool;
+	if _, ok := r.URL.Query()["cachedTestData"]; ok {
+		wantCached = true;
+	}
+
+	var data []byte
+
+	// Do we want to use cached data?
+	var cacheKey *datastore.Key
+	if wantCached {
+		log.Infof(ctx, "Trying to use cached data...")
+		cacheKey = datastore.NewKey(ctx, "VehicleLocations", "lastKnown", 0, nil)
+		vlData := new(VehicleLocations)
+		if err := datastore.Get(ctx, cacheKey, vlData); err == nil {
+			data = vlData.JsonData
+			log.Infof(ctx, "Got the data from the cache: %v bytes", len(data))
+		}
+	}
+
+	// Do we still need to get the data?	
+	if data == nil {
+		log.Infof(ctx, "Getting the real data from CoA")
+
+		// Get the latest bus locations
+		client := urlfetch.Client(ctx)
+		resp, err := client.Get("https://data.texas.gov/download/gyui-3zdd/text/plain")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Read the data and cache it if necessary		
+		var b bytes.Buffer
+		b.ReadFrom(resp.Body);
+		data = b.Bytes();
+		log.Infof(ctx, "Got %v bytes", len(data))
+
+		// Cache this for later, if desired
+		if wantCached {
+			vlData := new(VehicleLocations)
+			vlData.JsonData = data
+			if _, err := datastore.Put(ctx, cacheKey, vlData); err != nil {
+				log.Errorf(ctx, "Caching failed: %v", err)
+			}
+			log.Infof(ctx, "Cached the data for later")
+		}
+	}
+
 	// Write the data back to the client, wrapped by a function call to the specified callback.
 	fmt.Fprintf(w, callback)
 	fmt.Fprint(w, "(")
-	io.Copy(w, resp.Body)
+	w.Write(data)
 	fmt.Fprint(w, ")")
 }
