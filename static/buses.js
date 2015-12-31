@@ -131,6 +131,14 @@ function parseLocation( locationStr ) {
 	return { lat: lat, lng: lon };
 }
 
+// Parses a time value (hh:mm:ss) and returns a Date object (assumes the time is today)
+function parseTime( dateStr ) {
+	var pattern = /(\d+):(\d+):(\d+)/;
+	var m = pattern.exec( dateStr );
+	var now = new Date();
+	return new Date( now.getFullYear(), now.getMonth(), now.getDay(), m[1], m[2], m[3] );
+}
+
 // Converts a value between 0 and 360 to textual form, e.g. "NW"
 function directionToText( hdg ) {
 	var half = 45 / 2;
@@ -180,7 +188,7 @@ function showRoute( routeName ) {
 		var status = (v.Speed > 1)
 			? ("Heading " + bearingStr + " (" + bearingInt + "\u00B0) at " + Math.round( v.Speed ) + " MPH")
 			: "Stopped";
-		var footer = "Vehicle " + v.Vehicleid + ", Updated: " + v.Updatetime;
+		var footer = "Last updated at " + parseTime( v.Updatetime ).toString( "h:mm:ss tt" );
 
 		// Create the URL for the bus position map.
 		var pos = v.Position;

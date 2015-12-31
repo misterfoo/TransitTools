@@ -51,18 +51,18 @@ div.vehicleInfo {
 }
 
 p.busHeader {
-	margin: 0px;
+	margin: 1px;
 	text-align: center;
 	font-weight: bold;
 }
 
 p.busStatus {
-	margin: 0px;
+	margin: 1px;
 	text-align: center;
 }
 
 p.busFooter {
-	margin: 0px;
+	margin: 1px;
 	text-align: center;
 	font-size: smaller;
 }
