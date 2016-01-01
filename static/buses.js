@@ -9,7 +9,7 @@ var userLocation = null;
 // Load the bus list from the web server
 var busStatusUrl = location.origin + "/VehicleLocations";
 var ajaxData = {};
-if( document.location.hash === "#testing" ) {
+if( document.location.search === "?cachedTestData" ) {
 	ajaxData.cachedTestData = 1;
 }
 $.ajax({
@@ -35,25 +35,41 @@ $.ajax({
 	}
 });
 
-// Consumes the list of vehicles and fills the route picker
+// Get notified when the hash changes. We're using the hash to identify the 
+// route of interest. If the hash is empty, that means we want to see the full
+// list of routes.
+$(window).on( "hashchange", function() {
+	var route = parseInt( document.location.hash.substr( 1 ) );
+	switchToRoute( route );
+});
+
+// Consumes the list of vehicles and sets up the route headers
 function finishLoad() {
 	augmentVehicleInfo();
 
-	// Find all the unique routes
-	var routes = underscore.uniq( vehicles, false, function( v ) { return v.RouteName; } );
-	routes = underscore.sortBy( routes, function( v ) { return parseInt( v.RouteName ); } );
-	$.each( routes, function( i, v ) {
-		if( v.Route === "" ) {
+	// Find all the different routes
+	var routes = underscore.map( vehicles, function( v ) { return { Id: parseInt( v.Route ), Name: v.RouteName }; } ); 
+	routes = underscore.sortBy( routes, function( v ) { return v.Id; } );
+	routes = underscore.uniq( routes, false, function( r ) { return r.Id; } );
+
+	// Add a header for each route
+	$.each( routes, function( i, r ) {
+		if( r.Name === "" ) {
 			return;
 		}
-		$("<option/>").text( v.RouteName ).attr( "value", v.RouteName ).appendTo( "#routesList" );
+
+		var elem = $("<a/>").addClass( "route" ).attr( "href", "#" + r.Id );
+		$("<span/>").text( r.Name ).appendTo( elem );
+		$("<div/>").addClass( "buses" ).appendTo( elem ); // bus storage
+		elem.data( r );
+		elem.appendTo( "#routes" );
 	} );
 
 	// Pre-select the last used route.
 	var last = localStorage.lastRoute;
 	if( last ) {
-		$("#routesList").val( last );
-		showRoute( last );
+		document.location.hash = "#" + last;
+		switchToRoute( parseInt( last ) );
 	}
 
 	$("#loading").css("display", "none")
@@ -62,7 +78,7 @@ function finishLoad() {
 
 // Adds computed vehicle properties which are not in the raw JSON data.
 //
-// Vehcile info (items suffixed with *) are added by this code):
+// Vehicle info (items suffixed with *) are added by this code):
 /*
 	Route         : 1
 	RouteName*    : 1: Metric/South Congress
@@ -123,61 +139,56 @@ function augmentVehicleInfo() {
 	} );
 }
 
-// Converts a location string (e.g. "1.234,-5.678") to a Google Maps location object 
-function parseLocation( locationStr ) {
-	var parts = locationStr.split( "," );
-	var lat = parseFloat( parts[0] );
-	var lon = parseFloat( parts[1] );
-	return { lat: lat, lng: lon };
-}
+// Switches to the specified route, or back to the full listing if wantRoute is NaN
+function switchToRoute( wantRoute ) {
+	var showAll = isNaN( wantRoute );
+	
+	// Some non-route-specific actions for going back to the full listing
+	if( showAll ) {
+		$("#buses").empty();
+		localStorage.removeItem( "lastRoute" );
+	}
 
-// Parses a time value (hh:mm:ss) and returns a Date object (assumes the time is today)
-function parseTime( dateStr ) {
-	var pattern = /(\d+):(\d+):(\d+)/;
-	var m = pattern.exec( dateStr );
-	var now = new Date();
-	return new Date( now.getFullYear(), now.getMonth(), now.getDay(), m[1], m[2], m[3] );
-}
+	// Adjust each route header as appropriate.
+	$(".route").each( function( i, elem ) {
+		var e = $(elem);
+		var thisRoute = e.data();
 
-// Converts a value between 0 and 360 to textual form, e.g. "NW"
-function directionToText( hdg ) {
-	var half = 45 / 2;
-	if( hdg > (360 - half) || hdg <= (0 + half) ) {
-		return "North";
-	}
-	else if( hdg > (0 + half) && hdg <= (90 - half) ) {
-		return "Northeast";
-	}
-	else if( hdg > (90 - half) && hdg <= (90 + half) ) {
-		return "East";
-	}
-	else if( hdg > (90 + half) && hdg <= (180 - half) ) {
-		return "Southeast";
-	}
-	else if( hdg > (180 - half) && hdg <= (180 + half) ) {
-		return "South";
-	}
-	else if( hdg > (180 + half) && hdg <= (270 - half) ) {
-		return "Southwest";
-	}
-	else if( hdg > (270 - half) && hdg <= (270 + half) ) {
-		return "West";
-	}
-	else {
-		return "Northwest";
-	}
+		// Make the switch...
+		if( showAll ) {
+			// Restore the regular per-route links and show the headers.
+			e.attr( "href", "#" + thisRoute.Id );
+			e.removeClass( "routeTopBar" );
+			e.show();
+		}
+		else if( wantRoute === thisRoute.Id ) {
+			// Change this route's link to point to nothing (to collapse the header),
+			// and show all the vehicles for this route.
+			e.attr( "href", "#" );
+			e.addClass( "routeTopBar" );
+			showVehicles( thisRoute );
+		}		
+		else {
+			// show some other route
+			e.hide();
+		}
+	});
+
+	// Scroll back to the top in case the user had to scroll down to find the
+	// route they wanted to select.	
+	window.scrollTo( 0, 0 );
 }
 
 // Switches the display to show a particular route	
-function showRoute( routeName ) {
-
+function showVehicles( route ) {
 	// Remember this for the next load.		
-	localStorage.lastRoute = routeName;
+	localStorage.lastRoute = route.Id;
 
 	// Recompute the set of buses to display.
-	$("#buses").empty()
+	var buses = $("#buses");
+	buses.empty();
 	$.each( vehicles, function( i, v ) {
-		if( v.RouteName !== routeName ) {
+		if( v.RouteName !== route.Name ) {
 			return;
 		}
 
@@ -217,7 +228,7 @@ function showRoute( routeName ) {
 			.attr( "width", "350" )
 			.attr( "height", "262" )
 			.appendTo( link );
-		elem.appendTo( "#buses" );
+		elem.appendTo( buses );
 	} );
 
 	// Load the proximity info and sort if needed.
@@ -279,4 +290,49 @@ function computeDistance( lat1, lon1, lat2, lon2 ) {
 	var dlat = Math.abs( lat1 - lat2 ) * degreeToSM;
 	var dlon = Math.abs( lon1 - lon2 ) * degreeToSM * Math.cos( lat1 * Math.PI / 180 );
 	return Math.sqrt( dlat * dlat, dlon * dlon );
+}
+
+// Converts a location string (e.g. "1.234,-5.678") to a Google Maps location object 
+function parseLocation( locationStr ) {
+	var parts = locationStr.split( "," );
+	var lat = parseFloat( parts[0] );
+	var lon = parseFloat( parts[1] );
+	return { lat: lat, lng: lon };
+}
+
+// Parses a time value (hh:mm:ss) and returns a Date object (assumes the time is today)
+function parseTime( dateStr ) {
+	var pattern = /(\d+):(\d+):(\d+)/;
+	var m = pattern.exec( dateStr );
+	var now = new Date();
+	return new Date( now.getFullYear(), now.getMonth(), now.getDay(), m[1], m[2], m[3] );
+}
+
+// Converts a value between 0 and 360 to textual form, e.g. "NW"
+function directionToText( hdg ) {
+	var half = 45 / 2;
+	if( hdg > (360 - half) || hdg <= (0 + half) ) {
+		return "North";
+	}
+	else if( hdg > (0 + half) && hdg <= (90 - half) ) {
+		return "Northeast";
+	}
+	else if( hdg > (90 - half) && hdg <= (90 + half) ) {
+		return "East";
+	}
+	else if( hdg > (90 + half) && hdg <= (180 - half) ) {
+		return "Southeast";
+	}
+	else if( hdg > (180 - half) && hdg <= (180 + half) ) {
+		return "South";
+	}
+	else if( hdg > (180 + half) && hdg <= (270 - half) ) {
+		return "Southwest";
+	}
+	else if( hdg > (270 - half) && hdg <= (270 + half) ) {
+		return "West";
+	}
+	else {
+		return "Northwest";
+	}
 }

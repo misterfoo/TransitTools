@@ -21,33 +21,72 @@ body {
 	margin: auto;
 }
 
-#routes {
-	margin-bottom: 10px;
-	padding: 10px;
+/* Style for a route header */
+.route {
+	display: block;
+	margin-top: 5px;
+	padding: 5px 0 5px 0; 
 	text-align: center;
+	text-decoration: none;
 	background-color: lightslategray;
 	color: white;
 }
 
-div.vehicleInfo {
-	margin: auto;
-	margin-bottom: 10px;
+#buses {
+	/* Offset the top to sit below the route header */
+	padding-top: 40px;
+}
+
+.vehicleInfo {
+	margin: 10px auto 0px auto;
 	padding: 5px;
 	background-color: lightgray;
 	text-align: center;
 }
 
+/* For wide screens we use the full width of the screen */
 @media only screen and (min-width: 800px) {
-	#buses {
+	body {
+		font-size: 14px;
+	}
+	
+	/* Show the routes as boxes flowing across the page */
+	#routes {
 		text-align: center;
+	}
+	.route {
+		display: inline-block;
+		margin-left: 5px;
+		margin-right: 5px;
+		padding-left: 5px;
+		padding-right: 5px;
 	}
 
 	/* Show each bus as a box, flowed to fit the page */
-	div.vehicleInfo {
-		display: inline-block;
-		width: 360px;
-		margin: 10px;
+	#buses {
+		text-align: center;
 	}
+	.vehicleInfo {
+		display: inline-block;
+		margin: 10px 5px 0px 5px;
+		width: 360px;
+	}
+}
+
+/*
+The route header when a specific route is selected; the bar is pinned to the
+top and the rest of the content is behind it. This comes after the media query
+for wide displays because it needs to override some of the styles in the 'route'
+class.
+*/
+.routeTopBar {
+	position: fixed;
+	margin: 0px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	left: 0;
+	top: 0;
+	width: 100%;
 }
 
 p.busHeader {
