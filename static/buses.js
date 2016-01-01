@@ -49,8 +49,8 @@ function finishLoad() {
 
 	// Find all the different routes
 	var routes = underscore.map( vehicles, function( v ) { return { Id: parseInt( v.Route ), Name: v.RouteName }; } ); 
-	routes = underscore.sortBy( routes, function( v ) { return v.Id; } );
 	routes = underscore.uniq( routes, false, function( r ) { return r.Id; } );
+	routes = underscore.sortBy( routes, function( v ) { return v.Id; } );
 
 	// Add a header for each route
 	$.each( routes, function( i, r ) {
