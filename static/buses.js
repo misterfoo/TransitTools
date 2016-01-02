@@ -84,7 +84,7 @@ function finishLoad() {
 	RouteName*    : 1: Metric/South Congress
 	Direction     : N
 	DirectionName*: North
-	Updatetime    : 14:15:07
+	Updatetime    : Date{ 14:15:07 } (raw form: "14:15:07")
 	Updateseconds : 51307
 	Vehicleid     : 8934
 	Block         : 001-03
@@ -106,6 +106,11 @@ function augmentVehicleInfo() {
 	// Parse the positions out into structured form
 	$.each( vehicles, function( i, v ) {
 		v.Position = parseLocation( v.Position );	
+	} );
+	
+	// Parse the update times into structured form
+	$.each( vehicles, function( i, v ) {
+		v.Updatetime = parseTime( v.Updatetime );
 	} );
 	
 	// Add a RouteName property, which is really a reformatted version of Signage
@@ -184,6 +189,13 @@ function showVehicles( route ) {
 	// Remember this for the next load.		
 	localStorage.lastRoute = route.Id;
 
+	// Decide what size to use for images.	
+	var windowWidth = $(window).width();
+	var imageWidth = (windowWidth <= 750)
+		? (windowWidth - 20)
+		: 350;
+	var imageHeight = Math.floor( imageWidth * 3/4 );
+
 	// Recompute the set of buses to display.
 	var buses = $("#buses");
 	buses.empty();
@@ -199,7 +211,7 @@ function showVehicles( route ) {
 		var status = (v.Speed > 1)
 			? ("Heading " + bearingStr + " (" + bearingInt + "\u00B0) at " + Math.round( v.Speed ) + " MPH")
 			: "Stopped";
-		var footer = "Last updated at " + parseTime( v.Updatetime ).toString( "h:mm:ss tt" );
+		var footer = "Last updated at " + moment( v.Updatetime ).format( "h:mm:ss A" );
 
 		// Create the URL for the bus position map.
 		var pos = v.Position;
@@ -208,7 +220,7 @@ function showVehicles( route ) {
 		mapUrl += "key=AIzaSyCj73tIFXQfTsVWD83JQnMUho1PZa_YOLA";
 		mapUrl += "&center=" + pos.lat + "," + pos.lng;
 		mapUrl += "&zoom=" + zoom;
-		mapUrl += "&size=350x262";
+		mapUrl += "&size=" + imageWidth + "x" + imageHeight;
 		mapUrl += "&scale=2";
 		mapUrl += "&markers=color:red%7C" + pos.lat + "," + pos.lng;
 		var fullUrl = "http://maps.google.com/maps?";
@@ -225,10 +237,15 @@ function showVehicles( route ) {
 		$("<img/>")
 			.addClass( "busMap" )
 			.attr( "src", mapUrl )
-			.attr( "width", "350" )
-			.attr( "height", "262" )
+			.attr( "width", imageWidth )
+			.attr( "height", imageHeight )
 			.appendTo( link );
 		elem.appendTo( buses );
+
+		// Mark stale data so the user is more likely to see it		
+		if( moment( v.Updatetime ) < moment().subtract( 10, 'minutes' ) ) {
+			elem.children( ".busFooter" ).addClass( "staleData" );
+		}
 	} );
 
 	// Load the proximity info and sort if needed.
@@ -300,12 +317,25 @@ function parseLocation( locationStr ) {
 	return { lat: lat, lng: lon };
 }
 
-// Parses a time value (hh:mm:ss) and returns a Date object (assumes the time is today)
+// Parses a time value (hh:mm:ss) and returns a Date object (assumes the time is today).
+// This function assumes the input value is in the past, and will never return a value
+// in the future.
 function parseTime( dateStr ) {
+	var now = new Date();
+
 	var pattern = /(\d+):(\d+):(\d+)/;
 	var m = pattern.exec( dateStr );
-	var now = new Date();
-	return new Date( now.getFullYear(), now.getMonth(), now.getDay(), m[1], m[2], m[3] );
+
+	// Make a date with the assumption that the time value occurred today.
+	var value = new Date( now.getFullYear(), now.getMonth(), now.getDate(), m[1], m[2], m[3] );
+
+	// If the time value is in the future, then we'll assume it's from yesterday. The
+	// likely scenario is that the time value is something like 23:59 and several minutes
+	// have passed, so it's now 00:01 on the next day.
+	if( value > now ) {
+		value = moment( value ).subtract( 1, "day" ).toDate();
+	}
+	return value;
 }
 
 // Converts a value between 0 and 360 to textual form, e.g. "NW"
