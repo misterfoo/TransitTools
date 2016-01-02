@@ -27,6 +27,7 @@ body {
 /* Style for a route header */
 .route {
 	display: block;
+	position: relative; /* for positioning the .refresh link */
 	margin-top: 5px;
 	padding: 5px 0 5px 0; 
 	text-align: center;
@@ -35,12 +36,47 @@ body {
 	color: white;
 }
 
+.route-refreshing {
+	background-color: lightseagreen;
+}
+
+.refresh {
+	position: absolute;
+	bottom: 0px;
+	right: 0px;
+	height: 36px;
+	width: 40px;
+	padding: 10px;
+	text-decoration: none;
+	color: white;
+}
+
+.refresh-animate {
+    -webkit-animation: spin 2s linear infinite;
+    -moz-animation: spin 2s linear infinite;
+    animation: spin 2s linear infinite;
+}
+
+.refresh-hide {
+	display: none;
+}
+
+@-moz-keyframes spin {
+	100% { -moz-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+	100% { -webkit-transform: rotate(360deg); }
+}
+@keyframes spin {
+	100% { -webkit-transform: rotate(360deg); transform:rotate(360deg); }
+}
+
 #buses {
 	/* Offset the top to sit below the route header */
 	padding-top: 40px;
 }
 
-.vehicleInfo {
+.busInfo {
 	margin: 10px auto 0px auto;
 	padding: 5px;
 	background-color: lightgray;
@@ -69,7 +105,7 @@ body {
 	#buses {
 		text-align: center;
 	}
-	.vehicleInfo {
+	.busInfo {
 		display: inline-block;
 		margin: 10px 5px 0px 5px;
 		width: 360px;

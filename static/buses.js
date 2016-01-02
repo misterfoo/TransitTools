@@ -1,86 +1,18 @@
 var underscore = _.noConflict();
 
-// The list of all the active vehicles and their positions.
-var vehicles = null;
-
-// The user's last known location.
-var userLocation = null;
-
-// Load the bus list from the web server
-var busStatusUrl = location.origin + "/VehicleLocations";
-var ajaxData = {};
-if( document.location.search === "?cachedTestData" ) {
-	ajaxData.cachedTestData = 1;
-}
-$.ajax({
-	url: busStatusUrl,
-
-	// Additional data for the query.	
-	data: ajaxData,
-	
-	// Tell jQuery we're expecting JSONP.
-	dataType: "jsonp",
-
-	// Process the response.
-	success: function( response ) {
-		var package = response["soap:Envelope"]["soap:Body"].FleetlocationResponse;
-		console.log( package ); // server response
-		vehicles = package.Vehicles.Vehicle;
-		finishLoad();
-	},
-	
-	// Handle errors.
-	error: function( jqXHR, statusText, error ) {
-		console.log( statusText );
-	}
-});
-
-// Get notified when the hash changes. We're using the hash to identify the 
-// route of interest. If the hash is empty, that means we want to see the full
-// list of routes.
-$(window).on( "hashchange", function() {
-	var route = parseInt( document.location.hash.substr( 1 ) );
-	switchToRoute( route );
-});
-
-// Consumes the list of vehicles and sets up the route headers
-function finishLoad() {
-	augmentVehicleInfo();
-
-	// Find all the different routes
-	var routes = underscore.map( vehicles, function( v ) { return { Id: parseInt( v.Route ), Name: v.RouteName }; } ); 
-	routes = underscore.uniq( routes, false, function( r ) { return r.Id; } );
-	routes = underscore.sortBy( routes, function( v ) { return v.Id; } );
-
-	// Add a header for each route
-	$.each( routes, function( i, r ) {
-		if( r.Name === "" ) {
-			return;
-		}
-
-		var elem = $("<a/>").addClass( "route" ).attr( "href", "#" + r.Id );
-		$("<span/>").text( r.Name ).appendTo( elem );
-		$("<div/>").addClass( "buses" ).appendTo( elem ); // bus storage
-		elem.data( r );
-		elem.appendTo( "#routes" );
-	} );
-
-	// Pre-select the last used route.
-	var last = localStorage.lastRoute;
-	if( last ) {
-		document.location.hash = "#" + last;
-		switchToRoute( parseInt( last ) );
-	}
-
-	$("#loading").css("display", "none")
-	$("#content").css("display", "block")
-}
-
-// Adds computed vehicle properties which are not in the raw JSON data.
-//
-// Vehicle info (items suffixed with *) are added by this code):
+// The list of all the routes, and the current selected route.
+// Route properties:
 /*
-	Route         : 1
+	Id	 : 19
+	Name : "19: Bull Creek"
+*/
+var routes = null;
+var selectedRoute = null;
+
+// The list of all the active vehicles and their positions.
+// Vehicle properties (items suffixed with * are added by this code):
+/*
+	Route         : 1 (raw form: "1")
 	RouteName*    : 1: Metric/South Congress
 	Direction     : N
 	DirectionName*: North
@@ -102,56 +34,128 @@ function finishLoad() {
 	Signage       : 1-Metric/South Congress-NB
 	Position      : { lat: 30.189377, lng: -97.767860 } (raw form: "30.189377,-97.767860")
 */ 
-function augmentVehicleInfo() {
-	// Parse the positions out into structured form
-	$.each( vehicles, function( i, v ) {
-		v.Position = parseLocation( v.Position );	
-	} );
-	
-	// Parse the update times into structured form
-	$.each( vehicles, function( i, v ) {
-		v.Updatetime = parseTime( v.Updatetime );
-	} );
-	
-	// Add a RouteName property, which is really a reformatted version of Signage
-	var routePattern = /\d+(-| )?([\w /]+)(-\w+)?/;
-	$.each( vehicles, function( i, v ) {
-		var m = routePattern.exec( v.Signage );
-		if( !m ) {
-			v.RouteName = v.Signage;
-			return; 
+var vehicles = null;
+
+// The user's last known location.
+var userLocation = null;
+
+// Loads the vehicle list from the web server
+function refreshFromServer() {
+	// Setup the information we need for querying.
+	var busStatusUrl = location.origin + "/VehicleLocations";
+	var ajaxData = {};
+	if( document.location.search === "?cachedTestData" ) {
+		ajaxData.cachedTestData = 1;
+	}
+
+	$.ajax({
+		url: busStatusUrl,
+
+		// Additional data for the query.	
+		data: ajaxData,
+		
+		// Tell jQuery we're expecting JSONP.
+		dataType: "jsonp",
+
+		// Process the response.
+		success: function( response ) {
+			var package = response["soap:Envelope"]["soap:Body"].FleetlocationResponse;
+			vehicles = package.Vehicles.Vehicle;
+			augmentVehicleInfo();
+			finishLoad();
+		},
+		
+		// Handle errors.
+		error: function( jqXHR, statusText, error ) {
+			console.log( statusText );
+		}
+	});
+}
+
+$(document).ready( refreshFromServer );
+
+// Get notified when the hash changes. We're using the hash to identify the 
+// route of interest. If the hash is empty, that means we want to see the full
+// list of routes.
+$(window).on( "hashchange", function() {
+	var route = parseInt( document.location.hash.substr( 1 ) );
+	switchToRoute( route );
+});
+
+// Consumes the list of vehicles and sets up the route headers
+function finishLoad() {
+	// Find all the different routes.
+	routes = underscore.map( vehicles, function( v ) { return { Id: parseInt( v.Route ), Name: v.RouteName }; } ); 
+	routes = underscore.uniq( routes, false, function( r ) { return r.Id; } );
+	routes = underscore.sortBy( routes, function( v ) { return v.Id; } );
+
+	// Create a map from route id to associated header element.
+	var idToDiv = {};
+	$("#routes a.route").each( function( i, elem ) {
+		var route = $(elem).data();
+		idToDiv[route.Id] = $(elem);
+	});
+
+	// Create/update headers for all the routes.
+	$.each( routes, function( i, r ) {
+		if( r.Name === "" ) {
+			return;
 		}
 
-		v.RouteName = v.Route + ": " + m[2];
-	} );
-
-	// Add a DirectionName property.
-	$.each( vehicles, function( i, v ) {
-		var dir;
-		switch( v.Direction )
-		{
-			case "N": dir = "Northbound"; break;
-			case "S": dir = "Southbound"; break;
-			case "E": dir = "Eastbound"; break;
-			case "W": dir = "Westbound"; break;
-			case "C": dir = null; break; // clockwise?
-			case "K": dir = null; break; // counter-clockwise?
-			case "I": dir = "Inbound"; break;
-			case "O": dir = "Outbound"; break;
+		// Find or update the header for this route.
+		var elem = idToDiv[r.Id];
+		if( !elem ) {
+			elem = $("<a/>").addClass( "route" ).attr( "href", "#" + r.Id );
+			$("<span/>").text( r.Name ).appendTo( elem );
+			$("<a/>").addClass( "refresh" ).addClass( "refresh-hide" )
+				.attr( "href", "#" )
+				.click( function( evt ) {
+					evt.preventDefault(); // don't follow the link
+					$(this).addClass( "refresh-animate" );
+					$("#routes .route").addClass( "route-refreshing" );
+					refreshFromServer();
+				})
+				.appendTo( elem )
+				.append( $("<img/>").attr( "src", "refresh.png" ) );
+			elem.appendTo( "#routes" );
 		}
-
-		v.DirectionName = dir;
+		else {
+			elem.children( "span" ).text( r.Name );
+		}
+		elem.data( r );
 	} );
+
+	if( selectedRoute ) {
+		refreshVehicles( selectedRoute );
+	}
+	else {
+		// Pre-select the last used route.
+		var last = localStorage.lastRoute;
+		if( last ) {
+			document.location.hash = "#" + last;
+			switchToRoute( parseInt( last ) );
+		}
+	}
+
+	$("#loading").css( "display", "none" );
+	$("#content").css( "display", "block" );
+	$("a.refresh").removeClass( "refresh-animate" );
+	$("#routes .route").removeClass( "route-refreshing" );
 }
 
 // Switches to the specified route, or back to the full listing if wantRoute is NaN
-function switchToRoute( wantRoute ) {
-	var showAll = isNaN( wantRoute );
+function switchToRoute( routeId ) {
+	var showAll = isNaN( routeId );
 	
-	// Some non-route-specific actions for going back to the full listing
+	// Some non-route-specific actions for switching.
+	$("#buses").empty();
 	if( showAll ) {
-		$("#buses").empty();
+		selectedRoute = null;
 		localStorage.removeItem( "lastRoute" );
+	}
+	else {
+		selectedRoute = routeId;
+		localStorage.lastRoute = routeId;
 	}
 
 	// Adjust each route header as appropriate.
@@ -164,15 +168,17 @@ function switchToRoute( wantRoute ) {
 			// Restore the regular per-route links and show the headers.
 			e.attr( "href", "#" + thisRoute.Id );
 			e.removeClass( "routeTopBar" );
+			e.children( ".refresh" ).addClass( "refresh-hide" );
 			e.show();
 		}
-		else if( wantRoute === thisRoute.Id ) {
+		else if( routeId === thisRoute.Id ) {
 			// Change this route's link to point to nothing (to collapse the header),
 			// and show all the vehicles for this route.
 			e.attr( "href", "#" );
 			e.addClass( "routeTopBar" );
-			showVehicles( thisRoute );
-		}		
+			e.children( ".refresh" ).removeClass( "refresh-hide" );
+			refreshVehicles( thisRoute.Id );
+		}
 		else {
 			// show some other route
 			e.hide();
@@ -184,11 +190,8 @@ function switchToRoute( wantRoute ) {
 	window.scrollTo( 0, 0 );
 }
 
-// Switches the display to show a particular route	
-function showVehicles( route ) {
-	// Remember this for the next load.		
-	localStorage.lastRoute = route.Id;
-
+// Refreshes the list of vehicles displayed for a given route.	
+function refreshVehicles( routeId ) {
 	// Decide what size to use for images.	
 	var windowWidth = $(window).width();
 	var imageWidth = (windowWidth <= 750)
@@ -196,25 +199,27 @@ function showVehicles( route ) {
 		: 350;
 	var imageHeight = Math.floor( imageWidth * 3/4 );
 
-	// Recompute the set of buses to display.
-	var buses = $("#buses");
-	buses.empty();
-	$.each( vehicles, function( i, v ) {
-		if( v.RouteName !== route.Name ) {
-			return;
-		}
+	// Find the buses on this route and make a lookup table of the currently-shown ones.
+	var buses = underscore.filter( vehicles, function( v ) { return v.Route === routeId; } );
+	var currentById = {};
+	$("#buses .busInfo").each( function( i, elem ) {
+		var v = $(elem).data();
+		currentById[v.Vehicleid] = { Elem: $(elem), Used: false };
+	} );
 
+	// Recompute the set of buses to display.
+	$.each( buses, function( i, bus ) {
 		// Setup the text we'll show for each bus.
-		var header = v.DirectionName ? v.DirectionName : ("Bus " + v.Vehicleid);
-		var bearingInt = parseInt( v.Heading ) * 10;
+		var header = bus.DirectionName ? bus.DirectionName : ("Bus " + bus.Vehicleid);
+		var bearingInt = parseInt( bus.Heading ) * 10;
 		var bearingStr = directionToText( bearingInt );
-		var status = (v.Speed > 1)
-			? ("Heading " + bearingStr + " (" + bearingInt + "\u00B0) at " + Math.round( v.Speed ) + " MPH")
+		var status = (bus.Speed > 1)
+			? ("Heading " + bearingStr + " (" + bearingInt + "\u00B0) at " + Math.round( bus.Speed ) + " MPH")
 			: "Stopped";
-		var footer = "Last updated at " + moment( v.Updatetime ).format( "h:mm:ss A" );
+		var footer = "Data from " + moment( bus.Updatetime ).format( "h:mm:ss A" );
 
 		// Create the URL for the bus position map.
-		var pos = v.Position;
+		var pos = bus.Position;
 		var zoom = 15;
 		var mapUrl = "https://maps.googleapis.com/maps/api/staticmap?";
 		mapUrl += "key=AIzaSyCj73tIFXQfTsVWD83JQnMUho1PZa_YOLA";
@@ -228,23 +233,43 @@ function showVehicles( route ) {
 		fullUrl += "&q=" + pos.lat + "+" + pos.lng;
 		fullUrl += "&ll=" + pos.lat + "+" + pos.lng;
 
-		// Add all the content to the display area, and attach the vehicle to the outer div.
-		var elem = $("<div/>").addClass( "vehicleInfo" ).data( v );
-		$("<p/>").addClass( "busHeader" ).text( header ).appendTo( elem );
-		$("<p/>").addClass( "busStatus" ).text( status ).appendTo( elem );
-		$("<p/>").addClass( "busFooter" ).text( footer ).appendTo( elem );
-		var link = $("<a/>").attr( "href", fullUrl ).appendTo( elem );
-		$("<img/>")
-			.addClass( "busMap" )
-			.attr( "src", mapUrl )
-			.attr( "width", imageWidth )
-			.attr( "height", imageHeight )
-			.appendTo( link );
-		elem.appendTo( buses );
+		// Find or crete the div element for this bus.
+		var existing = currentById[bus.Vehicleid];
+		if( existing ) {
+			existing.Used = true;
+		}
+		var elem = existing ? existing.Elem : null;
+		if( !elem ) {
+			elem = $("<div/>").addClass( "busInfo" );
+			$("<p/>").addClass( "busHeader" ).appendTo( elem );
+			$("<p/>").addClass( "busStatus" ).appendTo( elem );
+			$("<p/>").addClass( "busFooter" ).appendTo( elem );
+			var link = $("<a/>").addClass( "busMapLink" ).appendTo( elem );
+			$("<img/>")
+				.addClass( "busMap" )
+				.attr( "width", imageWidth )
+				.attr( "height", imageHeight )
+				.appendTo( link );
+			elem.appendTo( "#buses" );
+		}
+
+		// Update all the information for this guy.
+		elem.data( bus );
+		elem.children( "p.busHeader" ).text( header ).data( "original", header );
+		elem.children( "p.busStatus" ).text( status );
+		elem.children( "p.busFooter" ).text( footer );
+		elem.children( "a.busMapLink" ).attr( "href", fullUrl )
+		    .children( "img" ).attr( "src", mapUrl ).attr( "title", "Vehicle " + bus.Vehicleid );
 
 		// Mark stale data so the user is more likely to see it		
-		if( moment( v.Updatetime ) < moment().subtract( 10, 'minutes' ) ) {
-			elem.children( ".busFooter" ).addClass( "staleData" );
+		var stale = moment( bus.Updatetime ) < moment().subtract( 10, 'minutes' );
+		elem.children( ".busFooter" ).toggleClass( "staleData", stale );
+	} );
+
+	// Remove any vehicles which are no longer on the route.
+	$.each( currentById, function( existing ) {
+		if( !currentById[existing].Used ) {
+			currentById[existing].Elem.remove();
 		}
 	} );
 
@@ -266,11 +291,8 @@ function sortByProximity() {
 		return;
 	}
 
-	$(".vehicleInfo").each( function( i, elem ) {
+	$(".busInfo").each( function( i, elem ) {
 		var v = $(elem).data();
-		if( v.Distance ) {
-			return;
-		}
 
 		// Compute the actual great circle distance.
 		var distance = computeDistance( v.Position.lat, v.Position.lng,
@@ -278,14 +300,14 @@ function sortByProximity() {
 		v.Distance = distance;
 
 		// Add the distance to each item's header.
-		var header = $(elem).children().first();
-		var text = header.text();
+		var header = $(elem).children( ".busHeader" );
+		var text = header.data( "original" );
 		text += ": " + Math.round( distance * 10 ) / 10 + " miles";
 		header.text( text );
 	});
 
 	// Pull out each item and its distance.
-	var buses = underscore.map( $(".vehicleInfo"), function( elem ) {
+	var buses = underscore.map( $(".busInfo"), function( elem ) {
 		return { elem: elem, distance: $(elem).data().Distance };
 	} );
 	if( buses.length === 0 ) {
@@ -299,6 +321,41 @@ function sortByProximity() {
 		$(buses[i].elem).insertAfter( next );
 		next = $(buses[i].elem); 
 	}
+}
+
+// Adds computed vehicle properties which are not in the raw JSON data.
+function augmentVehicleInfo() {
+	var routePattern = /\d+(-| )?([\w /]+)(-\w+)?/;
+	$.each( vehicles, function( i, v ) {
+		// Convert some values to proper non-string types.
+		v.Route = parseInt( v.Route );
+		v.Position = parseLocation( v.Position );	
+		v.Updatetime = parseTime( v.Updatetime );
+
+		// Compute the route name.
+		var m = routePattern.exec( v.Signage );
+		if( m ) {
+			v.RouteName = v.Route + ": " + m[2];
+		}
+		else {
+			v.RouteName = v.Signage;
+		}
+
+		// Compute a friendly direction name.
+		var dir;
+		switch( v.Direction )
+		{
+			case "N": dir = "Northbound"; break;
+			case "S": dir = "Southbound"; break;
+			case "E": dir = "Eastbound"; break;
+			case "W": dir = "Westbound"; break;
+			case "C": dir = null; break; // clockwise?
+			case "K": dir = null; break; // counter-clockwise?
+			case "I": dir = "Inbound"; break;
+			case "O": dir = "Outbound"; break;
+		}
+		v.DirectionName = dir;
+	} );
 }
 
 // Computes approximate distance between two nearby lat/lon points.
