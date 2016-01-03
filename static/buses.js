@@ -106,21 +106,20 @@ function finishLoad() {
 		var elem = idToDiv[r.Id];
 		if( !elem ) {
 			elem = $("<a/>").addClass( "route" ).attr( "href", "#" + r.Id );
-			$("<span/>").text( r.Name ).appendTo( elem );
-			$("<a/>").addClass( "refresh" ).addClass( "refresh-hide" )
-				.attr( "href", "#" )
+			$("<span/>").addClass( "routeName" ).text( r.Name ).appendTo( elem );
+			$("<a/>").addClass( "refresh refresh-hide" ).attr( "href", "#" )
 				.click( function( evt ) {
-					evt.preventDefault(); // don't follow the link
+					evt.preventDefault(); // don't follow the fake link
 					$(this).addClass( "refresh-animate" );
 					$("#routes .route").addClass( "route-refreshing" );
 					refreshFromServer();
 				})
-				.appendTo( elem )
-				.append( $("<img/>").attr( "src", "refresh.png" ) );
+				.append( $("<span/>").addClass( "refreshIcon genericon genericon-refresh" ) )
+				.appendTo( elem );
 			elem.appendTo( "#routes" );
 		}
 		else {
-			elem.children( "span" ).text( r.Name );
+			elem.children( "span.routeName" ).text( r.Name );
 		}
 		elem.data( r );
 	} );
@@ -166,9 +165,11 @@ function switchToRoute( routeId ) {
 		// Make the switch...
 		if( showAll ) {
 			// Restore the regular per-route links and show the headers.
-			e.attr( "href", "#" + thisRoute.Id );
-			e.removeClass( "routeTopBar" );
-			e.children( ".refresh" ).addClass( "refresh-hide" );
+			if( e.has( "routeTopBar" ) ) {
+				e.attr( "href", "#" + thisRoute.Id );
+				e.removeClass( "routeTopBar" );
+				e.children( ".refresh" ).addClass( "refresh-hide" );
+			}
 			e.show();
 		}
 		else if( routeId === thisRoute.Id ) {

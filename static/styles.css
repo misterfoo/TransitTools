@@ -42,13 +42,18 @@ body {
 
 .refresh {
 	position: absolute;
-	bottom: 0px;
+	top: 0px;
 	right: 0px;
-	height: 36px;
 	width: 40px;
-	padding: 10px;
+	height: 40px; /* needs to match .routeTopBar */
+	display: inline-table;
 	text-decoration: none;
 	color: white;
+}
+
+.refreshIcon {
+	display: table-cell;
+	vertical-align: middle;
 }
 
 .refresh-animate {
@@ -126,6 +131,7 @@ class.
 	left: 0;
 	top: 0;
 	width: 100%;
+	height: 40px;
 }
 
 p.busHeader {
